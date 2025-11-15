@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Purchase Order App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+        
+        /* Loading animation */
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #2563eb;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Mobile optimization */
+        input, textarea, select {
+            font-size: 16px !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div style="display: flex; justify-content: center; align-items: center; min-height: 100vh; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+            <div class="spinner"></div>
+        </div>
+    </div>
+
+    <script>
+        // Konfigurasi Google Apps Script URL
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbziZfN6Y93pxl9xokyL0PgA2aB3o8pCZxbIuXgMKMRo_v8YvhfF9yv23XuyKQi9pvI2/exec';
+        
+        // Data master (akan dimuat dari Google Sheets)
+        let masterData = {
+            brands: [],
+            items: [],
+            users: {}
+        };
+
+        // State aplikasi
+        let currentUser = null;
+        let currentPO = {
+            tanggal: new Date().toISOString().split('T')[0],
+            namaToko: '',
+            alamatToko: '',
+            selectedBrand: '',
+            items: [],
+            diskon1: '',
+            diskon2: '',
+            diskon3: '',
+            diskon4: '',
+            keterangan: ''
+        };
+
+        // Load master data dari Google Sheets
+        async function loadMasterData() {
+            try {
+                const response = await fetch(`${SCRIPT_URL}?action=getMasterData`);
+                const data = await response.json();
+                masterData = data;
+                renderLogin();
+            } catch (error) {
+                // Gunakan data demo jika gagal load
+                masterData = {
+                    brands: [
+                        {id: 1, name: 'Brand A'},
+                        {id: 2, name: 'Brand B'},
+                        {id: 3, name: 'Brand C'}
+                    ],
+                    items: [
+                        {id: 1, brandId: 1, name: 'Produk A1', code: 'PA1'},
+                        {id: 2, brandId: 1, name: 'Produk A2', code: 'PA2'},
+                        {id: 3, brandId: 2, name: 'Produk B1', code: 'PB1'},
+                        {id: 4, brandId: 3, name: 'Produk C1', code: 'PC1'}
+                    ],
+                    users: {
+                        'sales1': {password: 'sales123', role: 'sales', name: 'Sales 1'},
+                        'admin': {password: 'admin123', role: 'admin', name: 'Admin'}
+                    }
+                };
+                renderLogin();
+            }
+        }
+
+        // Render halaman login
+        function renderLogin() {
+            document.getElementById('app').innerHTML = `
+                <div class="min-h-screen bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center p-4">
+                    <div class="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
+                        <h1 class="text-3xl font-bold text-center text-blue-700 mb-6">Purchase Order App</h1>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                                <input type="text" id="username" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Masukkan username">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                                <input type="password" id="password" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Masukkan password">
+                            </div>
+                            <button onclick="handleLogin()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition">Login</button>
+                        </div>
+                        <div class="mt-6 text-sm text-gray-600 bg-gray-50 p-4 rounded">
+                            <p class="font-semibold mb-2">Demo Login:</p>
+                            <p>Sales: sales1 / sales123</p>
+                            <p>Admin: admin / admin123</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('password').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') handleLogin();
+            });
+        }
+
+        // Handle login
+        function handleLogin() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            const user = masterData.users[username];
+            if (user && user.password === password) {
+                currentUser = {username, ...user};
+                if (user.role === 'admin') {
+                    renderAdmin();
+                } else {
+                    renderPOForm();
+                }
+            } else {
+                alert('Username atau password salah!');
+            }
+        }
+
+        // Render form PO
+        function renderPOForm() {
+            document.getElementById('app').innerHTML = `
+                <div class="min-h-screen bg-gray-100">
+                    <div class="bg-blue-600 text-white p-4 flex justify-between items-center">
+                        <div>
+                            <h1 class="text-xl font-bold">Purchase Order</h1>
+                            <p class="text-sm">${currentUser.name}</p>
+                        </div>
+                        <button onclick="handleLogout()" class="bg-blue-700 px-4 py-2 rounded">Logout</button>
+                    </div>
+
+                    <div class="p-4 max-w-4xl mx-auto">
+                        <div class="bg-white rounded-lg shadow-lg p-6">
+                            <div class="grid grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Tanggal</label>
+                                    <input type="date" id="tanggal" value="${currentPO.tanggal}" onchange="updatePO('tanggal', this.value)" class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50">
+                                </div>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Nama Toko <span class="text-red-500">*</span></label>
+                                <input type="text" id="namaToko" value="${currentPO.namaToko}" onchange="updatePO('namaToko', this.value)" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Masukkan nama toko">
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Alamat Toko <span class="text-red-500">*</span></label>
+                                <textarea id="alamatToko" onchange="updatePO('alamatToko', this.value)" class="w-full px-4 py-2 border border-gray-300 rounded-lg" rows="2" placeholder="Masukkan alamat toko">${currentPO.alamatToko}</textarea>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Pilih Brand</label>
+                                <select id="selectedBrand" onchange="selectBrand(this.value)" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                                    <option value="">-- Pilih Brand --</option>
+                                    ${masterData.brands.map(b => `<option value="${b.id}" ${currentPO.selectedBrand == b.id ? 'selected' : ''}>${b.name}</option>`).join('')}
+                                </select>
+                            </div>
+
+                            ${currentPO.selectedBrand ? `
+                                <div class="mb-4">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Cari Item</label>
+                                    <input type="text" id="searchItem" oninput="searchItems(this.value)" class="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Ketik nama atau kode item...">
+                                    <div id="searchResults"></div>
+                                </div>
+                            ` : ''}
+
+                            <div id="itemList"></div>
+
+                            <div class="mb-4">
+                                <h3 class="font-semibold text-gray-700 mb-3">Diskon (Opsional)</h3>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <input type="text" value="${currentPO.diskon1}" onchange="updatePO('diskon1', this.value)" class="px-3 py-2 border border-gray-300 rounded-lg" placeholder="Diskon 1">
+                                    <input type="text" value="${currentPO.diskon2}" onchange="updatePO('diskon2', this.value)" class="px-3 py-2 border border-gray-300 rounded-lg" placeholder="Diskon 2">
+                                    <input type="text" value="${currentPO.diskon3}" onchange="updatePO('diskon3', this.value)" class="px-3 py-2 border border-gray-300 rounded-lg" placeholder="Diskon 3">
+                                    <input type="text" value="${currentPO.diskon4}" onchange="updatePO('diskon4', this.value)" class="px-3 py-2 border border-gray-300 rounded-lg" placeholder="Diskon 4">
+                                </div>
+                            </div>
+
+                            <div class="mb-6">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Keterangan (Opsional)</label>
+                                <textarea onchange="updatePO('keterangan', this.value)" class="w-full px-4 py-2 border border-gray-300 rounded-lg" rows="3" placeholder="Tambahkan keterangan jika perlu...">${currentPO.keterangan}</textarea>
+                            </div>
+
+                            <button onclick="showPreview()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition">Preview & Kirim</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            renderItemList();
+        }
+
+        // Update PO field
+        function updatePO(field, value) {
+            currentPO[field] = value;
+        }
+
+        // Select brand
+        function selectBrand(brandId) {
+            currentPO.selectedBrand = brandId;
+            renderPOForm();
+        }
+
+        // Search items
+        function searchItems(query) {
+            const items = masterData.items.filter(i => 
+                i.brandId == currentPO.selectedBrand &&
+                (i.name.toLowerCase().includes(query.toLowerCase()) || i.code.toLowerCase().includes(query.toLowerCase()))
+            );
+            
+            const resultsDiv = document.getElementById('searchResults');
+            if (query && items.length > 0) {
+                resultsDiv.innerHTML = `
+                    <div class="mt-2 border rounded-lg max-h-48 overflow-y-auto">
+                        ${items.map(item => `
+                            <div onclick="addItemToPO(${item.id})" class="p-3 hover:bg-blue-50 cursor-pointer border-b">
+                                <p class="font-medium">${item.name}</p>
+                                <p class="text-sm text-gray-600">${item.code}</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } else if (query) {
+                resultsDiv.innerHTML = '<div class="mt-2 border rounded-lg p-3 text-gray-500 text-center">Item tidak ditemukan</div>';
+            } else {
+                resultsDiv.innerHTML = '';
+            }
+        }
+
+        // Add item to PO
+        function addItemToPO(itemId) {
+            const item = masterData.items.find(i => i.id === itemId);
+            if (currentPO.items.find(i => i.id === itemId)) {
+                alert('Item sudah ditambahkan!');
+                return;
+            }
+            currentPO.items.push({...item, qtyKarton: 0, qtyPcs: 0});
+            document.getElementById('searchItem').value = '';
+            renderItemList();
+        }
+
+        // Render item list
+        function renderItemList() {
+            const itemListDiv = document.getElementById('itemList');
+            if (currentPO.items.length > 0) {
+                itemListDiv.innerHTML = `
+                    <div class="mb-4">
+                        <h3 class="font-semibold text-gray-700 mb-3">Item yang Dipesan</h3>
+                        ${currentPO.items.map((item, idx) => `
+                            <div class="bg-gray-50 p-4 rounded-lg mb-3">
+                                <div class="flex justify-between items-start mb-3">
+                                    <div>
+                                        <p class="font-semibold">${idx + 1}. ${item.name}</p>
+                                        <p class="text-sm text-gray-600">${item.code}</p>
+                                    </div>
+                                    <button onclick="removeItem(${item.id})" class="text-red-500 hover:text-red-700">✕</button>
+                                </div>
+                                
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Qty Karton</label>
+                                        <input type="number" value="${item.qtyKarton}" onchange="updateItemQty(${item.id}, 'qtyKarton', this.value)" class="w-full px-3 py-2 border border-gray-300 rounded-lg" min="0">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Qty Pcs</label>
+                                        <input type="number" value="${item.qtyPcs}" onchange="updateItemQty(${item.id}, 'qtyPcs', this.value)" class="w-full px-3 py-2 border border-gray-300 rounded-lg" min="0">
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } else {
+                itemListDiv.innerHTML = '';
+            }
+        }
+
+        // Update item quantity
+        function updateItemQty(itemId, field, value) {
+            const item = currentPO.items.find(i => i.id === itemId);
+            if (item) {
+                item[field] = parseInt(value) || 0;
+            }
+        }
+
+        // Remove item
+        function removeItem(itemId) {
+            currentPO.items = currentPO.items.filter(i => i.id !== itemId);
+            renderItemList();
+        }
+
+        // Show preview
+        function showPreview() {
+            if (!currentPO.namaToko || !currentPO.alamatToko) {
+                alert('Nama toko dan alamat harus diisi!');
+                return;
+            }
+            if (currentPO.items.length === 0) {
+                alert('Tambahkan minimal 1 item!');
+                return;
+            }
+            
+            document.getElementById('app').innerHTML = `
+                <div class="min-h-screen bg-gray-100 p-4">
+                    <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-6">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-4">Preview Purchase Order</h2>
+                        
+                        <div class="space-y-3 mb-6">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <p class="text-sm text-gray-600">Tanggal</p>
+                                    <p class="font-semibold">${currentPO.tanggal}</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-gray-600">Sales</p>
+                                    <p class="font-semibold">${currentUser.name}</p>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <p class="text-sm text-gray-600">Nama Toko</p>
+                                <p class="font-semibold">${currentPO.namaToko}</p>
+                            </div>
+                            
+                            <div>
+                                <p class="text-sm text-gray-600">Alamat</p>
+                                <p class="font-semibold">${currentPO.alamatToko}</p>
+                            </div>
+                        </div>
+
+                        <div class="border-t pt-4">
+                            <h3 class="font-semibold mb-3">Daftar Item</h3>
+                            ${currentPO.items.map((item, idx) => `
+                                <div class="bg-gray-50 p-3 rounded mb-2">
+                                    <p class="font-semibold">${idx + 1}. ${item.name}</p>
+                                    <p class="text-sm text-gray-600">Karton: ${item.qtyKarton} | Pcs: ${item.qtyPcs}</p>
+                                </div>
+                            `).join('')}
+                        </div>
+
+                        ${(currentPO.diskon1 || currentPO.diskon2 || currentPO.diskon3 || currentPO.diskon4) ? `
+                            <div class="border-t pt-4 mt-4">
+                                <h3 class="font-semibold mb-2">Diskon</h3>
+                                <div class="grid grid-cols-2 gap-2 text-sm">
+                                    ${currentPO.diskon1 ? `<p>Diskon 1: ${currentPO.diskon1}</p>` : ''}
+                                    ${currentPO.diskon2 ? `<p>Diskon 2: ${currentPO.diskon2}</p>` : ''}
+                                    ${currentPO.diskon3 ? `<p>Diskon 3: ${currentPO.diskon3}</p>` : ''}
+                                    ${currentPO.diskon4 ? `<p>Diskon 4: ${currentPO.diskon4}</p>` : ''}
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        ${currentPO.keterangan ? `
+                            <div class="border-t pt-4 mt-4">
+                                <h3 class="font-semibold mb-2">Keterangan</h3>
+                                <p class="text-sm">${currentPO.keterangan}</p>
+                            </div>
+                        ` : ''}
+
+                        <div class="flex gap-3 mt-6">
+                            <button onclick="renderPOForm()" class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-400 transition">Kembali Edit</button>
+                            <button onclick="submitPO()" class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition">Kirim PO</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Submit PO to Google Sheets
+        async function submitPO() {
+            const submitBtn = event.target;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = 'Mengirim...';
+            
+            try {
+                const poData = {
+                    ...currentPO,
+                    salesName: currentUser.name,
+                    salesUsername: currentUser.username,
+                    timestamp: new Date().toISOString()
+                };
+                
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify(poData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('Purchase Order berhasil dikirim!');
+                    resetPO();
+                    renderPOForm();
+                } else {
+                    alert('Gagal mengirim PO: ' + result.message);
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = 'Kirim PO';
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Kirim PO';
+            }
+        }
+
+        // Reset PO
+        function resetPO() {
+            currentPO = {
+                tanggal: new Date().toISOString().split('T')[0],
+                namaToko: '',
+                alamatToko: '',
+                selectedBrand: '',
+                items: [],
+                diskon1: '',
+                diskon2: '',
+                diskon3: '',
+                diskon4: '',
+                keterangan: ''
+            };
+        }
+
+        // Render admin page
+        function renderAdmin() {
+            document.getElementById('app').innerHTML = `
+                <div class="min-h-screen bg-gray-100">
+                    <div class="bg-blue-600 text-white p-4 flex justify-between items-center">
+                        <h1 class="text-xl font-bold">Admin Panel</h1>
+                        <button onclick="handleLogout()" class="bg-blue-700 px-4 py-2 rounded">Logout</button>
+                    </div>
+
+                    <div class="p-4 max-w-4xl mx-auto">
+                        <div class="bg-white rounded-lg shadow p-6 mb-4">
+                            <h2 class="text-xl font-bold mb-4">Tambah Master Data</h2>
+                            
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium mb-2">Tipe Data</label>
+                                <select id="adminType" onchange="switchAdminForm(this.value)" class="w-full px-4 py-2 border rounded-lg">
+                                    <option value="brand">Brand</option>
+                                    <option value="item">Item</option>
+                                </select>
+                            </div>
+
+                            <div id="adminFormContent"></div>
+                        </div>
+
+                        <div class="bg-white rounded-lg shadow p-6">
+                            <h2 class="text-xl font-bold mb-4">Daftar Brand</h2>
+                            ${masterData.brands.map(b => `<div class="bg-gray-50 p-3 rounded mb-2">${b.name}</div>`).join('')}
+
+                            <h2 class="text-xl font-bold mt-6 mb-4">Daftar Item</h2>
+                            ${masterData.brands.map(brand => `
+                                <div class="mb-4">
+                                    <h3 class="font-semibold text-blue-600 mb-2">${brand.name}</h3>
+                                    ${masterData.items.filter(i => i.brandId === brand.id).map(item => `
+                                        <div class="bg-gray-50 p-3 rounded mb-2">[${item.code}] ${item.name}</div>
+                                    `).join('')}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            switchAdminForm('brand');
+        }
+
+        // Switch admin form
+        function switchAdminForm(type) {
+            const formDiv = document.getElementById('adminFormContent');
+            if (type === 'brand') {
+                formDiv.innerHTML = `
+                    <label class="block text-sm font-medium mb-2">Nama Brand</label>
+                    <input type="text" id="brandName" class="w-full px-4 py-2 border rounded-lg mb-4" placeholder="Contoh: Brand D">
+                    <button onclick="addBrand()" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">Tambah Brand</button>
+                `;
+            } else {
+                formDiv.innerHTML = `
+                    <label class="block text-sm font-medium mb-2">Pilih Brand</label>
+                    <select id="itemBrand" class="w-full px-4 py-2 border rounded-lg mb-4">
+                        <option value="">-- Pilih Brand --</option>
+                        ${masterData.brands.map(b => `<option value="${b.id}">${b.name}</option>`).join('')}
+                    </select>
+
+                    <label class="block text-sm font-medium mb-2">Kode Item</label>
+                    <input type="text" id="itemCode" class="w-full px-4 py-2 border rounded-lg mb-4" placeholder="Contoh: PD1">
+
+                    <label class="block text-sm font-medium mb-2">Nama Item</label>
+                    <input type="text" id="itemName" class="w-full px-4 py-2 border rounded-lg mb-4" placeholder="Contoh: Produk D1">
+
+                    <button onclick="addItem()" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">Tambah Item</button>
+                `;
+            }
+        }
+
+        // Add brand
+        async function addBrand() {
+            const name = document.getElementById('brandName').value;
+            if (!name) return;
+            
+            try {
+                const response = await fetch(`${SCRIPT_URL}?action=addBrand&name=${encodeURIComponent(name)}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    masterData.brands.push({id: Date.now(), name});
+                    document.getElementById('brandName').value = '';
+                    alert('Brand berhasil ditambahkan!');
+                    renderAdmin();
+                } else {
+                    alert('Gagal menambahkan brand');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        // Add item
+        async function addItem() {
+            const brandId = document.getElementById('itemBrand').value;
+            const code = document.getElementById('itemCode').value;
+            const name = document.getElementById('itemName').value;
+            
+            if (!brandId || !code || !name) {
+                alert('Lengkapi semua field!');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${SCRIPT_URL}?action=addItem&brandId=${brandId}&code=${encodeURIComponent(code)}&name=${encodeURIComponent(name)}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    masterData.items.push({id: Date.now(), brandId: parseInt(brandId), code, name});
+                    document.getElementById('itemCode').value = '';
+                    document.getElementById('itemName').value = '';
+                    alert('Item berhasil ditambahkan!');
+                    renderAdmin();
+                } else {
+                    alert('Gagal menambahkan item');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        // Logout
+        function handleLogout() {
+            currentUser = null;
+            resetPO();
+            renderLogin();
+        }
+
+        // Initialize app
+        loadMasterData();
+    </script>
+</body>
+</html>
