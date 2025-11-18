@@ -7,14 +7,11 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         * { -webkit-tap-highlight-color: transparent; }
-        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; overscroll-behavior: none; }
-        input, textarea, select, button { font-size: 16px !important; -webkit-appearance: none; appearance: none; }
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; overscroll-behavior: none; }
+        input, textarea, select, button { font-size: 16px !important; }
         .spinner { border: 3px solid #f3f3f3; border-top: 3px solid #2563eb; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .fade-in { animation: fadeIn 0.3s ease-in; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .btn-primary:hover { background: linear-gradient(135deg, #5568d3 0%, #6a3f8f 100%); }
     </style>
 </head>
 <body>
@@ -25,137 +22,177 @@
     </div>
 
     <script>
-        const SCRIPT_URL = 'PASTE_URL_WEB_APP_DISINI';
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyKX-XgZCnmqBqXfKHavF-tdE_qkpi9FOo8vGfl6C5TOdqb5otLIl3i_NB1ChoBqz6j/exec';
         
         let masterData = { brands: [], items: [], users: {} };
         let currentUser = null;
-        let currentPO = { tanggal: new Date().toISOString().split('T')[0], namaToko: '', alamatToko: '', selectedBrand: '', items: [], diskon1: '', diskon2: '', diskon3: '', diskon4: '', keterangan: '' };
+        let currentPO = { tanggal: new Date().toISOString().split('T')[0], namaToko: '', alamatToko: '', selectedBrand: '', selectedBrandName: '', items: [], diskon1: '', diskon2: '', diskon3: '', diskon4: '', keterangan: '' };
 
         async function loadMasterData() {
-            if (!SCRIPT_URL || SCRIPT_URL === 'https://script.google.com/macros/s/AKfycbyKX-XgZCnmqBqXfKHavF-tdE_qkpi9FOo8vGfl6C5TOdqb5otLIl3i_NB1ChoBqz6j/exec') {
-                console.warn('SCRIPT_URL belum diganti! Menggunakan data dummy...');
+            if (!SCRIPT_URL || SCRIPT_URL === 'PASTE_URL_WEB_APP_DISINI') {
+                alert('SCRIPT_URL belum diganti! Menggunakan mode offline.');
                 useDummyData();
                 return;
             }
             try {
-                const response = await fetch(SCRIPT_URL + '?action=getMasterData');
+                console.log('Loading data from Apps Script...');
+                const response = await fetch(SCRIPT_URL + '?action=getMasterData&t=' + Date.now());
                 const data = await response.json();
-                if (data.success) { masterData = data; } else { useDummyData(); }
+                console.log('Response:', data);
+                
+                if (data.success) {
+                    masterData = data;
+                    console.log('Loaded - Brands:', masterData.brands.length, 'Items:', masterData.items.length, 'Users:', Object.keys(masterData.users).length);
+                } else {
+                    throw new Error(data.error || 'Failed to load data');
+                }
                 renderLogin();
             } catch (error) {
                 console.error('Error:', error);
+                alert('Gagal load data: ' + error.message);
                 useDummyData();
             }
         }
 
         function useDummyData() {
             masterData = {
-                brands: [{id: 1, name: 'Indomie'}, {id: 2, name: 'Mie Sedaap'}, {id: 3, name: 'Wings Food'}, {id: 4, name: 'PDB'}],
-                items: [{id: 1, brandId: 1, name: 'Indomie Goreng', code: 'IM-01'}, {id: 2, brandId: 1, name: 'Indomie Soto', code: 'IM-02'}, {id: 3, brandId: 2, name: 'Mie Sedaap Goreng', code: 'MS-01'}, {id: 4, brandId: 4, name: 'XTREME 6 LSN', code: '30001'}],
-                users: {'sales1': {password: 'sales123', role: 'sales', name: 'Sales 1'}, 'admin': {password: 'admin123', role: 'admin', name: 'Admin'}}
+                brands: [{id: 1, name: 'Indomie'}, {id: 4, name: 'PC ProdentalB'}],
+                items: [{id: 1, brandId: 1, name: 'Indomie Goreng', code: 'IM-01'}, {id: 8, brandId: 4, name: 'XTREME 6 LSN', code: '30001'}],
+                users: {'salesgt1': {password: 'sales123', role: 'sales', name: 'Irawan'}, 'admin': {password: 'admin123', role: 'admin', name: 'Admin'}}
             };
             renderLogin();
         }
 
         function renderLogin() {
-            document.getElementById('app').innerHTML = '<div class="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center p-4"><div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md fade-in"><div class="text-center mb-8"><div class="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full mx-auto mb-4 flex items-center justify-center"><svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg></div><h1 class="text-3xl font-bold text-gray-800">Purchase Order MCP</h1><p class="text-gray-500 mt-2">Aplikasi Order untuk Sales Team</p></div><div class="space-y-4"><div><label class="block text-sm font-medium text-gray-700 mb-2">Username</label><input type="text" id="username" class="w-full px-4 py-3 border border-gray-300 rounded-lg" placeholder="Masukkan username"></div><div><label class="block text-sm font-medium text-gray-700 mb-2">Password</label><input type="password" id="password" class="w-full px-4 py-3 border border-gray-300 rounded-lg" placeholder="Masukkan password"></div><button onclick="handleLogin()" class="w-full btn-primary text-white py-3 rounded-lg font-semibold">Login</button></div></div></div>';
+            const html = `
+                <div class="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center p-4">
+                    <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+                        <div class="text-center mb-8">
+                            <div class="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full mx-auto mb-4 flex items-center justify-center">
+                                <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            </div>
+                            <h1 class="text-3xl font-bold text-gray-800">Purchase Order MCP</h1>
+                            <p class="text-gray-500 mt-2">Sales Order Application</p>
+                        </div>
+                        <div class="space-y-4">
+                            <div><label class="block text-sm font-medium text-gray-700 mb-2">Username</label><input type="text" id="username" class="w-full px-4 py-3 border border-gray-300 rounded-lg" placeholder="Username"></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-2">Password</label><input type="password" id="password" class="w-full px-4 py-3 border border-gray-300 rounded-lg" placeholder="Password"></div>
+                            <button onclick="handleLogin()" class="w-full btn-primary text-white py-3 rounded-lg font-semibold">Login</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('app').innerHTML = html;
             document.getElementById('password').addEventListener('keypress', (e) => { if (e.key === 'Enter') handleLogin(); });
         }
 
         function handleLogin() {
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
+            
+            console.log('Login attempt:', username);
+            console.log('Available users:', Object.keys(masterData.users));
+            
             if (!username || !password) { alert('Username dan password harus diisi!'); return; }
+            
             const user = masterData.users[username];
             if (user && user.password === password) {
                 currentUser = {username, ...user};
+                console.log('Login success:', currentUser);
                 if (user.role === 'admin') { renderAdmin(); } else { renderPOForm(); }
-            } else { alert('Username atau password salah!'); }
+            } else {
+                alert('Username atau password salah!\n\nUsername tersedia: ' + Object.keys(masterData.users).join(', '));
+            }
         }
 
         function handleLogout() { currentUser = null; resetPO(); renderLogin(); }
-        function resetPO() { currentPO = { tanggal: new Date().toISOString().split('T')[0], namaToko: '', alamatToko: '', selectedBrand: '', items: [], diskon1: '', diskon2: '', diskon3: '', diskon4: '', keterangan: '' }; }
+        function resetPO() { currentPO = { tanggal: new Date().toISOString().split('T')[0], namaToko: '', alamatToko: '', selectedBrand: '', selectedBrandName: '', items: [], diskon1: '', diskon2: '', diskon3: '', diskon4: '', keterangan: '' }; }
         function updatePO(field, value) { currentPO[field] = value; }
-        function selectBrand(brandId) { currentPO.selectedBrand = brandId; renderPOForm(); }
+        
+        function selectBrand(brandId) {
+            currentPO.selectedBrand = brandId;
+            const brand = masterData.brands.find(b => b.id == brandId);
+            currentPO.selectedBrandName = brand ? brand.name : '';
+            console.log('Brand selected:', brandId, currentPO.selectedBrandName);
+            renderPOForm();
+        }
 
         function renderPOForm() {
-            let html = '<div class="min-h-screen bg-gray-100"><div class="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 shadow-lg"><div class="flex justify-between items-center max-w-4xl mx-auto"><div><h1 class="text-xl font-bold">📝 Purchase Order MCP</h1><p class="text-sm opacity-90">' + currentUser.name + '</p></div><button onclick="handleLogout()" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-4 py-2 rounded-lg text-sm font-semibold">Logout</button></div></div><div class="p-4 max-w-4xl mx-auto"><div class="bg-white rounded-xl shadow-lg p-6 fade-in">';
-            html += '<div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-2">📅 Tanggal</label><input type="date" id="tanggal" value="' + currentPO.tanggal + '" onchange="updatePO(\'tanggal\', this.value)" class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50"></div>';
-            html += '<div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-2">🏪 Nama Toko <span class="text-red-500">*</span></label><input type="text" id="namaToko" value="' + currentPO.namaToko + '" onchange="updatePO(\'namaToko\', this.value)" class="w-full px-4 py-3 border border-gray-300 rounded-lg" placeholder="Masukkan nama toko"></div>';
-            html += '<div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-2">📍 Alamat Toko <span class="text-red-500">*</span></label><textarea id="alamatToko" onchange="updatePO(\'alamatToko\', this.value)" class="w-full px-4 py-3 border border-gray-300 rounded-lg" rows="2" placeholder="Masukkan alamat lengkap toko">' + currentPO.alamatToko + '</textarea></div>';
-            html += '<div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-2">🏷️ Pilih Brand</label><select id="selectedBrand" onchange="selectBrand(this.value)" class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white"><option value="">-- Pilih Brand --</option>';
+            let html = '<div class="min-h-screen bg-gray-100"><div class="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 shadow-lg"><div class="flex justify-between items-center max-w-4xl mx-auto"><div><h1 class="text-xl font-bold">📝 Purchase Order MCP</h1><p class="text-sm opacity-90">' + currentUser.name + '</p></div><button onclick="handleLogout()" class="bg-white bg-opacity-20 px-4 py-2 rounded-lg text-sm font-semibold">Logout</button></div></div><div class="p-4 max-w-4xl mx-auto"><div class="bg-white rounded-xl shadow-lg p-6">';
+            html += '<div class="mb-4"><label class="block text-sm font-medium text-gray-700 mb-2">📅 Tanggal</label><input type="date" value="' + currentPO.tanggal + '" onchange="updatePO(\'tanggal\', this.value)" class="w-full px-4 py-3 border rounded-lg"></div>';
+            html += '<div class="mb-4"><label class="block text-sm font-medium text-gray-700 mb-2">🏪 Nama Toko <span class="text-red-500">*</span></label><input type="text" value="' + currentPO.namaToko + '" onchange="updatePO(\'namaToko\', this.value)" class="w-full px-4 py-3 border rounded-lg" placeholder="Nama toko"></div>';
+            html += '<div class="mb-4"><label class="block text-sm font-medium text-gray-700 mb-2">📍 Alamat <span class="text-red-500">*</span></label><textarea onchange="updatePO(\'alamatToko\', this.value)" class="w-full px-4 py-3 border rounded-lg" rows="2" placeholder="Alamat lengkap">' + currentPO.alamatToko + '</textarea></div>';
+            html += '<div class="mb-4"><label class="block text-sm font-medium text-gray-700 mb-2">🏷️ Brand</label><select onchange="selectBrand(this.value)" class="w-full px-4 py-3 border rounded-lg"><option value="">-- Pilih Brand --</option>';
             masterData.brands.forEach(b => { html += '<option value="' + b.id + '"' + (currentPO.selectedBrand == b.id ? ' selected' : '') + '>' + b.name + '</option>'; });
             html += '</select></div>';
+            
             if (currentPO.selectedBrand) {
-                html += '<div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-2">🔍 Cari Item (Nama atau Kode)</label><div class="relative"><input type="text" id="searchItem" oninput="searchItems(this.value)" class="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg" placeholder="Ketik nama atau kode item..."><svg class="absolute left-4 top-4 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg></div><div id="searchResults"></div></div>';
+                html += '<div class="mb-4"><label class="block text-sm font-medium text-gray-700 mb-2">🔍 Cari Item</label><input type="text" id="searchItem" oninput="searchItems(this.value)" class="w-full px-4 py-3 border rounded-lg" placeholder="Ketik nama atau kode..."><div id="searchResults"></div></div>';
             }
+            
             html += '<div id="itemList"></div>';
-            html += '<div class="mb-6 bg-blue-50 p-4 rounded-lg"><h3 class="font-semibold text-gray-700 mb-3">💰 Diskon (Opsional)</h3><div class="grid grid-cols-2 gap-3">';
-            html += '<input type="text" value="' + currentPO.diskon1 + '" onchange="updatePO(\'diskon1\', this.value)" class="px-3 py-2 border border-gray-300 rounded-lg" placeholder="Diskon 1">';
-            html += '<input type="text" value="' + currentPO.diskon2 + '" onchange="updatePO(\'diskon2\', this.value)" class="px-3 py-2 border border-gray-300 rounded-lg" placeholder="Diskon 2">';
-            html += '<input type="text" value="' + currentPO.diskon3 + '" onchange="updatePO(\'diskon3\', this.value)" class="px-3 py-2 border border-gray-300 rounded-lg" placeholder="Diskon 3">';
-            html += '<input type="text" value="' + currentPO.diskon4 + '" onchange="updatePO(\'diskon4\', this.value)" class="px-3 py-2 border border-gray-300 rounded-lg" placeholder="Diskon 4">';
+            html += '<div class="mb-4 bg-blue-50 p-4 rounded-lg"><h3 class="font-semibold mb-2">💰 Diskon</h3><div class="grid grid-cols-2 gap-2">';
+            html += '<input type="text" value="' + currentPO.diskon1 + '" onchange="updatePO(\'diskon1\', this.value)" class="px-3 py-2 border rounded-lg" placeholder="Diskon 1">';
+            html += '<input type="text" value="' + currentPO.diskon2 + '" onchange="updatePO(\'diskon2\', this.value)" class="px-3 py-2 border rounded-lg" placeholder="Diskon 2">';
+            html += '<input type="text" value="' + currentPO.diskon3 + '" onchange="updatePO(\'diskon3\', this.value)" class="px-3 py-2 border rounded-lg" placeholder="Diskon 3">';
+            html += '<input type="text" value="' + currentPO.diskon4 + '" onchange="updatePO(\'diskon4\', this.value)" class="px-3 py-2 border rounded-lg" placeholder="Diskon 4">';
             html += '</div></div>';
-            html += '<div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-2">📝 Keterangan (Opsional)</label><textarea onchange="updatePO(\'keterangan\', this.value)" class="w-full px-4 py-3 border border-gray-300 rounded-lg" rows="3" placeholder="Tambahkan keterangan jika perlu...">' + currentPO.keterangan + '</textarea></div>';
-            html += '<button onclick="showPreview()" class="w-full btn-primary text-white py-4 rounded-lg font-semibold text-lg">👁️ Preview & Kirim PO</button>';
+            html += '<div class="mb-4"><label class="block text-sm font-medium text-gray-700 mb-2">📝 Keterangan</label><textarea onchange="updatePO(\'keterangan\', this.value)" class="w-full px-4 py-3 border rounded-lg" rows="2">' + currentPO.keterangan + '</textarea></div>';
+            html += '<button onclick="showPreview()" class="w-full btn-primary text-white py-4 rounded-lg font-semibold">👁️ Preview & Kirim</button>';
             html += '</div></div></div>';
             document.getElementById('app').innerHTML = html;
             renderItemList();
         }
 
         function searchItems(query) {
-            const searchQuery = query.toLowerCase().trim();
-            const items = masterData.items.filter(i => {
-                if (i.brandId != currentPO.selectedBrand) return false;
-                const nameMatch = i.name.toLowerCase().includes(searchQuery);
-                const codeMatch = i.code.toLowerCase().includes(searchQuery);
-                return nameMatch || codeMatch;
-            });
-            const resultsDiv = document.getElementById('searchResults');
-            if (!resultsDiv) return;
-            if (searchQuery && items.length > 0) {
-                let html = '<div class="mt-2 border rounded-lg max-h-60 overflow-y-auto shadow-md">';
-                items.forEach(item => { html += '<div onclick="addItemToPO(' + item.id + ')" class="p-3 hover:bg-blue-50 cursor-pointer border-b last:border-b-0"><p class="font-medium text-gray-800">' + item.name + '</p><p class="text-sm text-blue-600 font-mono">' + item.code + '</p></div>'; });
+            const q = query.toLowerCase().trim();
+            const items = masterData.items.filter(i => i.brandId == currentPO.selectedBrand && (i.name.toLowerCase().includes(q) || i.code.toLowerCase().includes(q)));
+            const div = document.getElementById('searchResults');
+            if (!div) return;
+            if (q && items.length > 0) {
+                let html = '<div class="mt-2 border rounded-lg max-h-60 overflow-y-auto">';
+                items.forEach(item => { html += '<div onclick="addItemToPO(' + item.id + ')" class="p-3 hover:bg-blue-50 cursor-pointer border-b"><p class="font-medium">' + item.name + '</p><p class="text-sm text-blue-600">' + item.code + '</p></div>'; });
                 html += '</div>';
-                resultsDiv.innerHTML = html;
-            } else if (searchQuery) {
-                resultsDiv.innerHTML = '<div class="mt-2 border rounded-lg p-3 text-gray-500 text-center bg-gray-50">Item tidak ditemukan</div>';
+                div.innerHTML = html;
+            } else if (q) {
+                div.innerHTML = '<div class="mt-2 p-3 text-gray-500 text-center">Tidak ditemukan</div>';
             } else {
-                resultsDiv.innerHTML = '';
+                div.innerHTML = '';
             }
         }
 
         function addItemToPO(itemId) {
             const item = masterData.items.find(i => i.id === itemId);
+            if (!item) return;
             if (currentPO.items.find(i => i.id === itemId)) { alert('Item sudah ditambahkan!'); return; }
-            currentPO.items.push({...item, qtyKarton: 0, qtyPcs: 0});
+            currentPO.items.push({...item, qtyKarton: 0, qtyPcs: 0, brandName: currentPO.selectedBrandName});
             document.getElementById('searchItem').value = '';
             document.getElementById('searchResults').innerHTML = '';
             renderItemList();
         }
 
         function renderItemList() {
-            const itemListDiv = document.getElementById('itemList');
-            if (!itemListDiv) return;
+            const div = document.getElementById('itemList');
+            if (!div) return;
             if (currentPO.items.length > 0) {
-                let html = '<div class="mb-6"><h3 class="font-semibold text-gray-700 mb-3">📦 Item yang Dipesan</h3>';
+                let html = '<div class="mb-4"><h3 class="font-semibold mb-2">📦 Item Dipesan</h3>';
                 currentPO.items.forEach((item, idx) => {
-                    html += '<div class="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg mb-3 border border-blue-200"><div class="flex justify-between items-start mb-3"><div class="flex-1"><p class="font-semibold text-gray-800">' + (idx + 1) + '. ' + item.name + '</p><p class="text-sm text-blue-600 font-mono">' + item.code + '</p></div><button onclick="removeItem(' + item.id + ')" class="text-red-500 hover:text-red-700 hover:bg-red-100 p-2 rounded-lg"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button></div>';
-                    html += '<div class="grid grid-cols-2 gap-3"><div><label class="block text-xs font-medium text-gray-700 mb-1">📦 Qty Karton</label><input type="number" value="' + item.qtyKarton + '" onchange="updateItemQty(' + item.id + ', \'qtyKarton\', this.value)" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-center font-semibold" min="0"></div>';
-                    html += '<div><label class="block text-xs font-medium text-gray-700 mb-1">📦 Qty Pcs</label><input type="number" value="' + item.qtyPcs + '" onchange="updateItemQty(' + item.id + ', \'qtyPcs\', this.value)" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-center font-semibold" min="0"></div></div></div>';
+                    html += '<div class="bg-blue-50 p-3 rounded-lg mb-2"><div class="flex justify-between mb-2"><div><p class="font-semibold">' + (idx + 1) + '. ' + item.name + '</p><p class="text-sm text-blue-600">' + item.code + '</p></div><button onclick="removeItem(' + item.id + ')" class="text-red-500">✕</button></div>';
+                    html += '<div class="grid grid-cols-2 gap-2"><div><label class="text-xs">Karton</label><input type="number" value="' + item.qtyKarton + '" onchange="updateItemQty(' + item.id + ', \'qtyKarton\', this.value)" class="w-full px-2 py-1 border rounded text-center" min="0"></div>';
+                    html += '<div><label class="text-xs">Pcs</label><input type="number" value="' + item.qtyPcs + '" onchange="updateItemQty(' + item.id + ', \'qtyPcs\', this.value)" class="w-full px-2 py-1 border rounded text-center" min="0"></div></div></div>';
                 });
                 html += '</div>';
-                itemListDiv.innerHTML = html;
+                div.innerHTML = html;
             } else {
-                itemListDiv.innerHTML = '';
+                div.innerHTML = '';
             }
         }
 
         function updateItemQty(itemId, field, value) {
             const item = currentPO.items.find(i => i.id === itemId);
             if (item) {
-                const numValue = parseInt(value);
-                if (isNaN(numValue) || numValue < 0) { alert('Quantity harus berupa angka positif!'); item[field] = 0; } else { item[field] = numValue; }
+                const num = parseInt(value);
+                item[field] = isNaN(num) || num < 0 ? 0 : num;
                 renderItemList();
             }
         }
@@ -167,46 +204,40 @@
             if (currentPO.items.length === 0) { alert('Tambahkan minimal 1 item!'); return; }
             for (let item of currentPO.items) { if (item.qtyKarton === 0 && item.qtyPcs === 0) { alert('Item "' + item.name + '" harus memiliki qty!'); return; } }
             
-            let html = '<div class="min-h-screen bg-gray-100 p-4"><div class="max-w-4xl mx-auto bg-white rounded-xl shadow-2xl p-6 fade-in"><div class="text-center mb-6"><div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full mx-auto mb-4 flex items-center justify-center"><svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg></div><h2 class="text-2xl font-bold text-gray-800">Preview Purchase Order</h2></div>';
-            html += '<div class="space-y-4 mb-6 bg-gray-50 p-4 rounded-lg"><div class="grid grid-cols-2 gap-4"><div><p class="text-sm text-gray-600 font-medium">📅 Tanggal</p><p class="font-semibold">' + currentPO.tanggal + '</p></div><div><p class="text-sm text-gray-600 font-medium">👤 Sales</p><p class="font-semibold">' + currentUser.name + '</p></div></div>';
-            html += '<div><p class="text-sm text-gray-600 font-medium">🏪 Nama Toko</p><p class="font-semibold">' + currentPO.namaToko + '</p></div>';
-            html += '<div><p class="text-sm text-gray-600 font-medium">📍 Alamat</p><p class="font-semibold">' + currentPO.alamatToko + '</p></div></div>';
-            html += '<div class="border-t pt-4"><h3 class="font-semibold mb-3 text-lg">📦 Daftar Item</h3>';
+            let html = '<div class="min-h-screen bg-gray-100 p-4"><div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-6"><h2 class="text-2xl font-bold text-center mb-4">Preview Purchase Order</h2>';
+            html += '<div class="bg-gray-50 p-4 rounded-lg mb-4"><div class="grid grid-cols-2 gap-2 mb-2"><div><p class="text-sm text-gray-600">Tanggal</p><p class="font-semibold">' + currentPO.tanggal + '</p></div><div><p class="text-sm text-gray-600">Sales</p><p class="font-semibold">' + currentUser.name + '</p></div></div>';
+            html += '<div class="mb-2"><p class="text-sm text-gray-600">Toko</p><p class="font-semibold">' + currentPO.namaToko + '</p></div>';
+            html += '<div><p class="text-sm text-gray-600">Alamat</p><p class="font-semibold">' + currentPO.alamatToko + '</p></div></div>';
+            html += '<h3 class="font-semibold mb-2">Daftar Item:</h3>';
             currentPO.items.forEach((item, idx) => {
-                html += '<div class="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg mb-3 border border-blue-200"><p class="font-semibold text-gray-800">' + (idx + 1) + '. ' + item.name + '</p><p class="text-sm text-blue-600 font-mono">' + item.code + '</p><div class="mt-2 flex gap-4 text-sm"><span class="bg-blue-100 px-3 py-1 rounded-full font-semibold">📦 Karton: ' + item.qtyKarton + '</span><span class="bg-purple-100 px-3 py-1 rounded-full font-semibold">📦 Pcs: ' + item.qtyPcs + '</span></div></div>';
+                html += '<div class="bg-blue-50 p-3 rounded mb-2"><p class="font-semibold">' + (idx + 1) + '. ' + item.name + '</p><p class="text-sm text-blue-600">' + item.code + '</p><p class="text-sm">Karton: ' + item.qtyKarton + ' | Pcs: ' + item.qtyPcs + '</p></div>';
             });
-            html += '</div>';
             if (currentPO.diskon1 || currentPO.diskon2 || currentPO.diskon3 || currentPO.diskon4) {
-                html += '<div class="border-t pt-4 mt-4"><h3 class="font-semibold mb-2">💰 Diskon</h3><div class="grid grid-cols-2 gap-2 text-sm">';
-                if (currentPO.diskon1) html += '<p class="bg-green-50 px-3 py-2 rounded">Diskon 1: ' + currentPO.diskon1 + '</p>';
-                if (currentPO.diskon2) html += '<p class="bg-green-50 px-3 py-2 rounded">Diskon 2: ' + currentPO.diskon2 + '</p>';
-                if (currentPO.diskon3) html += '<p class="bg-green-50 px-3 py-2 rounded">Diskon 3: ' + currentPO.diskon3 + '</p>';
-                if (currentPO.diskon4) html += '<p class="bg-green-50 px-3 py-2 rounded">Diskon 4: ' + currentPO.diskon4 + '</p>';
+                html += '<div class="mt-4"><h3 class="font-semibold mb-2">Diskon:</h3><div class="text-sm">';
+                if (currentPO.diskon1) html += '<p>1: ' + currentPO.diskon1 + '</p>';
+                if (currentPO.diskon2) html += '<p>2: ' + currentPO.diskon2 + '</p>';
+                if (currentPO.diskon3) html += '<p>3: ' + currentPO.diskon3 + '</p>';
+                if (currentPO.diskon4) html += '<p>4: ' + currentPO.diskon4 + '</p>';
                 html += '</div></div>';
             }
-            if (currentPO.keterangan) {
-                html += '<div class="border-t pt-4 mt-4"><h3 class="font-semibold mb-2">📝 Keterangan</h3><p class="text-sm bg-yellow-50 p-3 rounded">' + currentPO.keterangan + '</p></div>';
-            }
-            html += '<div class="flex gap-3 mt-6"><button onclick="renderPOForm()" class="flex-1 bg-gray-300 text-gray-700 py-4 rounded-lg font-semibold hover:bg-gray-400">← Kembali Edit</button><button onclick="submitPO()" class="flex-1 bg-gradient-to-r from-green-500 to-green-600 text-white py-4 rounded-lg font-semibold hover:from-green-600 hover:to-green-700">✅ Kirim PO</button></div></div></div>';
+            if (currentPO.keterangan) html += '<div class="mt-4"><h3 class="font-semibold mb-2">Keterangan:</h3><p class="text-sm">' + currentPO.keterangan + '</p></div>';
+            html += '<div class="flex gap-3 mt-6"><button onclick="renderPOForm()" class="flex-1 bg-gray-300 py-3 rounded-lg font-semibold">Kembali</button><button onclick="submitPO()" class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold">Kirim PO</button></div></div></div>';
             document.getElementById('app').innerHTML = html;
         }
 
         async function submitPO() {
             const btn = event.target;
             btn.disabled = true;
-            btn.innerHTML = '⏳ Mengirim...';
+            btn.innerHTML = 'Mengirim...';
             try {
                 const poData = {...currentPO, salesName: currentUser.name, salesUsername: currentUser.username, timestamp: new Date().toISOString()};
                 const response = await fetch(SCRIPT_URL, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(poData) });
                 const result = await response.json();
-                if (result.success) { alert('✅ Purchase Order berhasil dikirim!'); resetPO(); renderPOForm(); } else { alert('❌ Gagal: ' + (result.error || result.message)); btn.disabled = false; btn.innerHTML = '✅ Kirim PO'; }
-            } catch (error) { alert('❌ Error: ' + error.message); btn.disabled = false; btn.innerHTML = '✅ Kirim PO'; }
+                if (result.success) { alert('✅ PO berhasil dikirim!'); resetPO(); renderPOForm(); } else { alert('❌ Gagal: ' + result.error); btn.disabled = false; btn.innerHTML = 'Kirim PO'; }
+            } catch (error) { alert('❌ Error: ' + error.message); btn.disabled = false; btn.innerHTML = 'Kirim PO'; }
         }
 
-        function renderAdmin() {
-            alert('Admin panel - silakan tambahkan fungsi admin sesuai kebutuhan');
-            renderPOForm();
-        }
+        function renderAdmin() { alert('Admin panel - Silakan tambahkan brand/item manual di Google Sheets'); renderPOForm(); }
 
         window.addEventListener('DOMContentLoaded', () => { loadMasterData(); });
     </script>
